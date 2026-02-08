@@ -1,0 +1,50 @@
+<PolicySet PolicySetId="HACS-Hospital-Complex" PolicyCombiningAlgId="deny-overrides">
+    <!-- Policy 1: Physician Privileges (5 Rules) -->
+    <Policy PolicyId="Physician-Policy" RuleCombiningAlgId="permit-overrides">
+        <Target><Match AttributeId="role" Value="doctor"/></Target>
+        <Rule RuleId="R1" Effect="Permit"/>
+        <Rule RuleId="R2" Effect="Permit"><Condition><AttributeValue>assigned-patient</AttributeValue></Condition></Rule>
+        <Rule RuleId="R3" Effect="Permit"><Target><Match AttributeId="action" Value="schedule"/></Target></Rule>
+        <Rule RuleId="R4" Effect="Permit"><Target><Match AttributeId="dept" Value="medical"/></Target></Rule>
+        <Rule RuleId="R5" Effect="Deny"><Target><Match AttributeId="resource" Value="billing"/></Target></Rule>
+    </Policy>
+
+    <!-- Policy 2: Nursing (5 Rules) -->
+    <Policy PolicyId="Nursing-Policy" RuleCombiningAlgId="permit-overrides">
+        <Target><Match AttributeId="role" Value="nurse"/></Target>
+        <Rule RuleId="R6" Effect="Permit"/>
+        <Rule RuleId="R7" Effect="Permit"><Target><Match AttributeId="action" Value="inject"/></Target></Rule>
+        <Rule RuleId="R8" Effect="Permit"/>
+        <Rule RuleId="R9" Effect="Permit"/>
+        <Rule RuleId="R10" Effect="Deny"/>
+    </Policy>
+
+    <!-- Policy 3: Laboratory (5 Rules) -->
+    <Policy PolicyId="Lab-Policy" RuleCombiningAlgId="deny-overrides">
+        <Target><Match AttributeId="role" Value="lab-tech"/></Target>
+        <Rule RuleId="R11" Effect="Permit"/>
+        <Rule RuleId="R12" Effect="Permit"/>
+        <Rule RuleId="R13" Effect="Permit"/>
+        <Rule RuleId="R14" Effect="Permit"/>
+        <Rule RuleId="R15" Effect="Deny"/>
+    </Policy>
+
+    <!-- Policy 4: Administration (5 Rules) -->
+    <Policy PolicyId="Admin-Policy" RuleCombiningAlgId="permit-overrides">
+        <Target><Match AttributeId="dept" Value="admin"/></Target>
+        <Rule RuleId="R16" Effect="Permit"><Target><Match AttributeId="role" Value="clerk"/></Target></Rule>
+        <Rule RuleId="R17" Effect="Permit"><Target><Match AttributeId="role" Value="director"/></Target></Rule>
+        <Rule RuleId="R18" Effect="Permit"/>
+        <Rule RuleId="R19" Effect="Permit"/>
+        <Rule RuleId="R20" Effect="Deny"><Target><Match AttributeId="resource" Value="medical-record"/></Target></Rule>
+    </Policy>
+
+    <!-- Policy 5: Emergency Logic (5 Rules) -->
+    <Policy PolicyId="Emergency-Policy" RuleCombiningAlgId="deny-overrides">
+        <Rule RuleId="R21" Effect="Permit"><Target><Match AttributeId="mode" Value="emergency"/></Target></Rule>
+        <Rule RuleId="R22" Effect="Deny"><Condition><AttributeValue>code-red</AttributeValue></Condition></Rule>
+        <Rule RuleId="R23" Effect="Deny"><Target><Match AttributeId="role" Value="visitor"/></Target></Rule>
+        <Rule RuleId="R24" Effect="Deny"><Target><Match AttributeId="zone" Value="biohazard"/></Target></Rule>
+        <Rule RuleId="R25" Effect="Permit"/>
+    </Policy>
+</PolicySet>

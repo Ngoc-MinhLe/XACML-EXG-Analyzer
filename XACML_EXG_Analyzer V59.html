@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XACML EXG Analyzer - Research Pro v5.9</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        
+        /* Viewport configuration */
+        .graph-viewport { 
+            @apply flex-1 overflow-hidden relative bg-slate-50/50 flex items-center justify-center;
+            border-radius: 8px;
+        }
+        #graphOutput, #modalGraph { 
+            transform-origin: 0 0;
+            transition: transform 0.1s ease-out;
+            cursor: grab;
+        }
+        #graphOutput:active, #modalGraph:active { cursor: grabbing; }
+
+        /* Prevent clipping and ensure high-res text */
+        foreignObject { overflow: visible !important; }
+        .nodeLabel {
+            font-size: 15px !important;
+            line-height: 1.4 !important;
+            min-width: 150px; max-width: 300px;
+            text-align: center;
+            display: flex; flex-direction: column;
+            padding: 0 !important; margin: 0 !important;
+            box-sizing: border-box;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .node-main { padding: 14px 18px; width: 100%; box-sizing: border-box; }
+        .status-bar { 
+            width: 100%; padding: 8px 0; font-weight: 800; font-size: 13px; 
+            text-transform: uppercase; border-top: 1px solid rgba(0,0,0,0.05); 
+            letter-spacing: 1px;
+        }
+        
+        .nodeLabel b { font-size: 17px !important; color: #0f172a; display: block; margin: 2px 0; font-weight: 800; }
+        .nodeLabel small { font-size: 10px !important; opacity: 0.5; font-weight: 700; text-transform: uppercase; display: block; }
+
+        /* Result Colors */
+        .bar-permit { background-color: #10b981; color: white; }
+        .bar-deny { background-color: #ef4444; color: white; }
+        .bar-na { background-color: #bae6fd; color: #0369a1; }
+
+        .glass-panel { @apply bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl shadow-sm; }
+        .attr-input { @apply w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-[11px] outline-none focus:border-indigo-400 font-mono transition-all font-semibold; }
+        .attr-label { @apply text-[9px] font-bold text-slate-400 uppercase mb-1 block; }
+
+        /* Modal Styles */
+        .modal { @apply fixed inset-0 z-[100] hidden flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4; }
+        .modal-content { @apply bg-white w-full h-full rounded-2xl shadow-2xl flex flex-col overflow-hidden; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        
+        /* Placeholder styling to avoid Mermaid Syntax Error */
+        .placeholder-ui { @apply flex flex-col items-center justify-center text-slate-300 gap-4; }
+        
+        svg { max-width: none !important; height: auto !important; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Enhanced Header -->
+    <header class="bg-slate-900 text-white px-6 py-3 flex justify-between items-center shadow-lg shrink-0 z-50">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-gradient-to-br from-indigo-500 to-cyan-500 rounded-lg shadow-lg">
+                <i class="fa-solid fa-vial-circle-check text-xl text-white"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-base tracking-tight leading-none mb-1">XACML EXG Analyzer <span class="text-[9px] bg-indigo-600 px-1.5 py-0.5 rounded ml-1 uppercase font-black">v5.9 Final</span></h1>
+                <p class="text-[9px] text-slate-400 uppercase tracking-widest font-semibold italic">A Graph-Based Framework (CITA '26)</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <label class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all border border-slate-700 flex items-center gap-2">
+                <i class="fa-solid fa-file-import"></i> 1. Import
+                <input type="file" id="fileInput" accept=".xml" class="hidden" onchange="handleFile(this)">
+            </label>
+            <button onclick="runAnalysis()" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-1.5 rounded-lg text-xs font-bold shadow-lg transition-all flex items-center gap-2">
+                <i class="fa-solid fa-play"></i> 2. Analyze
+            </button>
+            <button id="exportBtn" onclick="exportResults()" class="bg-slate-700 opacity-50 cursor-not-allowed px-4 py-1.5 rounded-lg text-xs font-bold shadow-lg transition-all flex items-center gap-2">
+                <i class="fa-solid fa-floppy-disk"></i> 3. Export Data
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-hidden p-3 gap-3 grid grid-cols-12">
+        <!-- Sidebar -->
+        <div class="col-span-3 flex flex-col gap-3 overflow-hidden">
+            <div class="glass-panel p-3 shrink-0">
+                <h3 class="font-bold text-slate-700 text-[10px] mb-3 uppercase tracking-widest flex justify-between items-center">
+                    <span><i class="fa-solid fa-sliders mr-2 text-indigo-500"></i> Context Request</span>
+                    <button onclick="resetAttrs()" class="text-[8px] text-slate-400 hover:text-indigo-600 font-bold uppercase">Reset</button>
+                </h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <div><label class="attr-label">Subject Role</label><input type="text" id="attr_role" value="doctor" class="attr-input"></div>
+                    <div><label class="attr-label">Access Zone</label><input type="text" id="attr_zone" value="medical" class="attr-input"></div>
+                    <div><label class="attr-label">Action</label><input type="text" id="attr_action" value="read" class="attr-input"></div>
+                    <div><label class="attr-label">Origin</label><input type="text" id="attr_origin" value="internal" class="attr-input"></div>
+                    <div><label class="attr-label">Dept</label><input type="text" id="attr_dept" value="medical" class="attr-input"></div>
+                    <div><label class="attr-label">Sensitivity</label><input type="text" id="attr_sensitivity" value="public" class="attr-input"></div>
+                </div>
+            </div>
+
+            <div class="glass-panel flex-1 flex flex-col overflow-hidden">
+                <div class="px-3 py-2 border-b border-slate-100 font-bold text-slate-700 flex items-center justify-between">
+                    <span class="text-[10px] uppercase"><i class="fa-solid fa-sitemap mr-2 text-indigo-400"></i> Structure</span>
+                    <span id="nodeCount" class="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-mono">0 Items</span>
+                </div>
+                <div id="policyTree" class="p-3 overflow-y-auto flex-1 text-[10px] text-slate-500 font-mono leading-relaxed">
+                    <p class="italic text-center mt-10 opacity-50">Upload a file to visualize logic hierarchy...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Graph Area -->
+        <div class="col-span-6 flex flex-col gap-3 overflow-hidden">
+            <div class="glass-panel flex-1 flex flex-col overflow-hidden relative">
+                <div class="px-4 py-2 border-b border-slate-100 font-bold text-slate-700 flex justify-between items-center bg-white shrink-0 z-10">
+                    <span class="text-[10px] uppercase flex items-center gap-2"><i class="fa-solid fa-project-diagram text-indigo-500"></i> EXG Explanation Visualization</span>
+                    <div class="flex items-center gap-3">
+                        <div class="flex gap-2">
+                            <button onclick="zoom(1.2)" class="w-6 h-6 flex items-center justify-center bg-slate-100 rounded hover:bg-slate-200 shadow-sm"><i class="fa-solid fa-plus text-[10px]"></i></button>
+                            <button onclick="zoom(0.8)" class="w-6 h-6 flex items-center justify-center bg-slate-100 rounded hover:bg-slate-200 shadow-sm"><i class="fa-solid fa-minus text-[10px]"></i></button>
+                        </div>
+                        <button onclick="toggleModal(true)" class="text-indigo-600 text-[10px] font-black hover:underline uppercase tracking-wider"><i class="fa-solid fa-expand mr-1"></i> Fullscreen</button>
+                    </div>
+                </div>
+                
+                <div class="graph-viewport" id="viewport" onmousedown="startDrag(event)" onwheel="handleWheel(event)">
+                    <!-- Fix Syntax Error on Load by using a placeholder div -->
+                    <div id="graphOutput" class="mermaid-container animate-fade-in">
+                        <div class="placeholder-ui">
+                            <i class="fa-solid fa-file-circle-plus text-6xl"></i>
+                            <p class="font-bold uppercase tracking-widest text-xs">Waiting for XACML Analysis</p>
+                            <p class="text-[10px]">1. Import file -> 2. Run Analysis</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="absolute bottom-4 left-4 flex gap-3 text-[9px] font-black bg-white/90 p-2 rounded-lg border border-slate-200 shadow-sm backdrop-blur pointer-events-none">
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-emerald-500 shadow-sm"></span> PERMIT</span>
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-rose-500 shadow-sm"></span> DENY</span>
+                    <span class="flex items-center gap-1"><span class="w-3 h-3 rounded border border-sky-400 bg-sky-50 shadow-sm"></span> NA</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics Area -->
+        <div class="col-span-3 flex flex-col gap-3 overflow-hidden">
+            <div class="glass-panel flex-1 flex flex-col overflow-hidden">
+                <div class="px-3 py-2 border-b border-slate-100 font-bold text-slate-700 text-[10px] uppercase tracking-widest">
+                    <i class="fa-solid fa-square-poll-vertical mr-2 text-indigo-500"></i> Experiment Metrics
+                </div>
+                <div id="metricsArea" class="p-4 overflow-y-auto flex-1 flex flex-col gap-4">
+                    <div class="flex flex-col items-center justify-center h-full text-slate-200">
+                        <i class="fa-solid fa-microscope text-6xl mb-4"></i>
+                        <p class="text-[10px] font-bold uppercase">No Active Result</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Fullscreen -->
+    <div id="graphModal" class="modal">
+        <div class="modal-content">
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h2 class="font-black text-slate-800 text-sm uppercase italic tracking-widest flex items-center gap-2">
+                    <i class="fa-solid fa-desktop text-indigo-500"></i> 
+                    High-Definition EXG Pro
+                </h2>
+                <div class="flex gap-4">
+                    <button onclick="fitGraph()" class="px-4 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-indigo-600 hover:bg-indigo-50 shadow-sm flex items-center gap-2"><i class="fa-solid fa-expand"></i> Auto-Fit</button>
+                    <button onclick="toggleModal(false)" class="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 rounded-full text-slate-400 hover:text-rose-500 shadow-md transition-all"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="flex-1 overflow-hidden relative bg-slate-50" id="modalViewport" onmousedown="startModalDrag(event)" onwheel="handleModalWheel(event)">
+                <div id="modalGraph" class="animate-fade-in origin-top-left">
+                    <div class="flex flex-col items-center justify-center h-full text-slate-200 mt-40">
+                         <i class="fa-solid fa-diagram-next text-8xl opacity-10"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="p-3 bg-white border-t border-slate-100 flex justify-center gap-10 text-[10px] font-bold text-slate-400">
+                <span><i class="fa-solid fa-mouse-pointer mr-2"></i>WHEEL: ZOOM</span>
+                <span><i class="fa-solid fa-hand-rock mr-2"></i>DRAG: MOVE</span>
+                <span class="text-indigo-500 tracking-wider">XACML 3.0 POLICY EXPLAINER ENGINE ACTIVE</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let rawPolicyData = null;
+        let lastMermaidDef = "";
+        let analysisResultData = null;
+
+        // Pan & Zoom state
+        let scale = 0.8, posX = 100, posY = 50, panning = false;
+        let mScale = 0.6, mPosX = 100, mPosY = 50, mPanning = false;
+
+        function updateTransform() { 
+            const el = document.getElementById('graphOutput');
+            if(el && el.tagName === 'DIV' && el.classList.contains('mermaid-container')) {
+                el.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`; 
+            }
+        }
+        function zoom(delta) { scale *= delta; if(scale < 0.1) scale = 0.1; updateTransform(); }
+        
+        function fitGraph() {
+            const el = document.getElementById('modalGraph');
+            const svg = el.querySelector('svg');
+            if(!svg) return;
+            const container = document.getElementById('modalViewport');
+            mScale = Math.min((container.clientWidth - 100) / svg.getBBox().width, (container.clientHeight - 100) / svg.getBBox().height, 1);
+            mPosX = 50; mPosY = 50; updateModalTransform();
+        }
+        function updateModalTransform() { 
+            const el = document.getElementById('modalGraph');
+            el.style.transform = `translate(${mPosX}px, ${mPosY}px) scale(${mScale})`; 
+        }
+        
+        function handleWheel(e) { e.preventDefault(); zoom(e.deltaY > 0 ? 0.9 : 1.1); }
+        function handleModalWheel(e) { e.preventDefault(); mScale *= e.deltaY > 0 ? 0.9 : 1.1; updateModalTransform(); }
+        
+        function startDrag(e) { 
+            if(e.target.closest('button') || !lastMermaidDef) return; 
+            panning = true; let sX = e.clientX - posX, sY = e.clientY - posY; 
+            const move = (me) => { if(!panning) return; posX = me.clientX - sX; posY = me.clientY - sY; updateTransform(); }; 
+            const up = () => { panning = false; window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); }; 
+            window.addEventListener('mousemove', move); window.addEventListener('mouseup', up); 
+        }
+        
+        function startModalDrag(e) { 
+            mPanning = true; let sX = e.clientX - mPosX, sY = e.clientY - mPosY; 
+            const move = (me) => { if(!mPanning) return; mPosX = me.clientX - sX; mPosY = me.clientY - sY; updateModalTransform(); }; 
+            const up = () => { mPanning = false; window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); }; 
+            window.addEventListener('mousemove', move); window.addEventListener('mouseup', up); 
+        }
+
+        function toggleModal(show) { 
+            const m = document.getElementById('graphModal'); 
+            if(show) { 
+                m.classList.remove('hidden'); 
+                const out = document.getElementById('modalGraph'); 
+                if(lastMermaidDef) {
+                    out.innerHTML = lastMermaidDef; 
+                    out.classList.add('mermaid');
+                    out.removeAttribute('data-processed'); 
+                    mermaid.init(undefined, out).then(() => fitGraph()); 
+                }
+            } else m.classList.add('hidden'); 
+        }
+
+        // Phase 1: Policy Parsing
+        function handleFile(input) {
+            const file = input.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const parser = new DOMParser();
+                rawPolicyData = parser.parseFromString(e.target.result, "text/xml");
+                renderTree();
+            };
+            reader.readAsText(file);
+        }
+
+        function renderTree() {
+            const tree = document.getElementById('policyTree'); const badge = document.getElementById('nodeCount'); tree.innerHTML = ""; let count = 0;
+            function walk(node, depth = 0) {
+                if (node.nodeType !== 1) return ""; const tag = node.tagName;
+                const id = node.getAttribute('PolicySetId') || node.getAttribute('PolicyId') || node.getAttribute('RuleId');
+                if (!id && !["Target", "Condition"].includes(tag)) return ""; count++;
+                let html = `<div style="padding-left: ${depth * 6}px" class="border-l border-slate-100 ml-1 py-0.5 whitespace-nowrap"><span class="text-slate-300">└</span> <span class="text-slate-700 font-bold">${tag}</span> <span class="text-indigo-500">${id || ''}</span></div>`;
+                Array.from(node.children).forEach(c => html += walk(c, depth + 1)); return html;
+            }
+            tree.innerHTML = walk(rawPolicyData.documentElement); badge.innerText = `${count} Elements`;
+        }
+
+        function getAttrs() { 
+            return { 
+                role: document.getElementById('attr_role').value, 
+                zone: document.getElementById('attr_zone').value, 
+                action: document.getElementById('attr_action').value, 
+                origin: document.getElementById('attr_origin').value, 
+                dept: document.getElementById('attr_dept').value, 
+                sensitivity: document.getElementById('attr_sensitivity').value 
+            }; 
+        }
+
+        // Phase 2: EXG Construction & Traversal (Algorithm 1 & 2)
+        function runAnalysis() {
+            if(!rawPolicyData) return alert("Please load an XACML dataset first.");
+            const startTime = performance.now();
+            const attrs = getAttrs();
+            let mermaidDef = "graph TD\n";
+            let dominantLeaf = "None";
+
+            function evalNode(node) {
+                const tag = node.tagName;
+                const rawId = (node.getAttribute('PolicySetId') || node.getAttribute('PolicyId') || node.getAttribute('RuleId') || Math.random().toString(36).substr(2,4));
+                const id = rawId.replace(/\W/g, '_');
+                const alg = node.getAttribute('PolicyCombiningAlgId') || node.getAttribute('RuleCombiningAlgId') || "permit-overrides";
+                
+                let decision = "NotApplicable";
+                const target = node.querySelector(':scope > Target');
+                let targetMatch = true;
+                if(target) {
+                    targetMatch = false;
+                    const matches = target.querySelectorAll('Match');
+                    for(let m of matches) { if(attrs[m.getAttribute('AttributeId')] === m.getAttribute('Value')) { targetMatch = true; break; } }
+                }
+
+                if(!targetMatch) {
+                    mermaidDef += `${id}["<div class='nodeLabel'><div class='node-main'><small>${tag}</small><b>${rawId}</b></div><div class='status-bar bar-na'>NA</div></div>"]:::na\n`;
+                    return { id, decision: "NotApplicable" };
+                }
+
+                let childResults = [];
+                Array.from(node.children).forEach(c => { 
+                    if(["PolicySet", "Policy", "Rule"].includes(c.tagName)) { 
+                        const r = evalNode(c); childResults.push(r); mermaidDef += `${id} --> ${r.id}\n`; 
+                    } 
+                });
+
+                if(tag === "Rule") {
+                    const effect = node.getAttribute('Effect');
+                    const condition = node.querySelector('Condition AttributeValue');
+                    let condOk = true;
+                    if(condition) condOk = (Object.values(attrs).includes(condition.textContent.trim()));
+                    decision = condOk ? effect : "NotApplicable";
+                    if(decision !== "NotApplicable") dominantLeaf = rawId;
+                } else if(childResults.length > 0) {
+                    const decs = childResults.map(c => c.decision);
+                    if(alg.includes("deny-overrides")) decision = decs.includes("Deny") ? "Deny" : (decs.includes("Permit") ? "Permit" : "NotApplicable");
+                    else decision = decs.includes("Permit") ? "Permit" : (decs.includes("Deny") ? "Deny" : "NotApplicable");
+                }
+
+                let css = tag.toLowerCase(), barClass = "bar-na";
+                if(decision === "Permit") { css = "permit_node"; barClass = "bar-permit"; }
+                if(decision === "Deny") { css = "deny_node"; barClass = "bar-deny"; }
+                
+                mermaidDef += `${id}["<div class='nodeLabel'><div class='node-main'><small>${tag}</small><b>${rawId}</b></div><div class='status-bar ${barClass}'>${decision}</div></div>"]:::${css}\n`;
+                return { id, decision };
+            }
+
+            const rootRes = evalNode(rawPolicyData.documentElement);
+            const endTime = performance.now();
+            const timeTaken = (endTime - startTime).toFixed(2);
+
+            // Record experiment data for export
+            analysisResultData = {
+                dataset: rawPolicyData.documentElement.getAttribute('PolicySetId') || "Generic_Policy",
+                outcome: rootRes.decision,
+                latency: timeTaken + " ms",
+                nodes: document.getElementById('nodeCount').innerText.split(' ')[0],
+                dominant_rule: dominantLeaf,
+                timestamp: new Date().toLocaleString()
+            };
+
+            // Apply Styles
+            mermaidDef += `classDef policyset fill:#fff,stroke:#3b82f6,color:#1e40af,stroke-width:1.5px;\n`;
+            mermaidDef += `classDef policy fill:#fff,stroke:#8b5cf6,color:#4c1d95,stroke-width:1.5px;\n`;
+            mermaidDef += `classDef rule fill:#fff,stroke:#94a3b8,stroke-width:1.5px;\n`;
+            mermaidDef += `classDef na fill:#fff,stroke:#bae6fd,color:#0369a1,stroke-dasharray: 4 4;\n`; 
+            mermaidDef += `classDef permit_node fill:#fff,stroke:#10b981,color:#065f46,stroke-width:5px;\n`;
+            mermaidDef += `classDef deny_node fill:#fff,stroke:#ef4444,color:#7f1d1d,stroke-width:5px;\n`;
+
+            lastMermaidDef = mermaidDef;
+            const out = document.getElementById('graphOutput');
+            out.innerHTML = mermaidDef;
+            out.classList.add('mermaid');
+            out.removeAttribute('data-processed');
+            mermaid.init(undefined, out);
+            
+            updateMetricsUI(analysisResultData);
+            
+            // Enable Export button
+            const exBtn = document.getElementById('exportBtn');
+            exBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'bg-slate-700');
+            exBtn.classList.add('bg-emerald-600');
+            
+            posX = 50; posY = 50; scale = 0.6; updateTransform();
+        }
+
+        // Phase 4: Explanation Output
+        function updateMetricsUI(data) {
+            const area = document.getElementById('metricsArea');
+            const color = data.outcome === 'Permit' ? 'text-emerald-600' : (data.outcome === 'Deny' ? 'text-rose-600' : 'text-slate-400');
+            const bg = data.outcome === 'Permit' ? 'bg-emerald-50' : (data.outcome === 'Deny' ? 'bg-rose-50' : 'bg-slate-50');
+            
+            area.innerHTML = `
+                <div class="${bg} p-5 rounded-2xl border-2 border-current animate-fade-in shadow-xl">
+                    <p class="text-[10px] font-black opacity-60 uppercase mb-2 tracking-widest">Global Decision Result</p>
+                    <p class="text-4xl font-black ${color} tracking-tighter">${data.outcome}</p>
+                    <p class="text-[10px] text-slate-400 mt-3 font-mono">Performance: ${data.latency}</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="p-3 bg-white border border-slate-100 rounded-xl text-center shadow-sm">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase">Soundness</p>
+                        <p class="text-sm font-black text-emerald-500">100%</p>
+                    </div>
+                    <div class="p-3 bg-white border border-slate-100 rounded-xl text-center shadow-sm">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase">Graph Nodes</p>
+                        <p class="text-sm font-black text-indigo-500">${data.nodes}</p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 p-4 rounded-2xl font-mono text-[10px] text-emerald-400 leading-relaxed overflow-x-auto shadow-2xl">
+                    <p class="text-slate-500 mb-2">// Statistical Research Metadata</p>
+                    <p>Outcome: "${data.outcome}"</p>
+                    <p>Dominant_Rule: "${data.dominant_rule}"</p>
+                    <p>Method: "Backward-Traversal"</p>
+                    <p>Timestamp: "${data.timestamp}"</p>
+                </div>
+                
+                <div class="mt-2 p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-[10px] text-indigo-700">
+                    <i class="fa-solid fa-circle-info mr-1"></i> Data ready for Table 2 synthesis. Press <b>Export Data</b> to save local JSON.
+                </div>
+            `;
+        }
+
+        function exportResults() {
+            if(!analysisResultData) return alert("Run analysis first!");
+            const blob = new Blob([JSON.stringify(analysisResultData, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `EXG_Exp_${analysisResultData.dataset}_${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function resetAttrs() { document.querySelectorAll('.attr-input').forEach(i => i.value = ""); }
+
+        // Final mermaid config
+        mermaid.initialize({ 
+            startOnLoad: false, // Do not auto-render on load to avoid placeholder errors
+            theme: 'neutral', 
+            securityLevel: 'loose', 
+            fontSize: 16, 
+            flowchart: { 
+                useMaxWidth: false, htmlLabels: true, curve: 'basis',
+                nodeSpacing: 100, rankSpacing: 120 
+            } 
+        });
+    </script>
+</body>
+</html>

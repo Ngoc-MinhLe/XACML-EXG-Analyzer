@@ -1,0 +1,41 @@
+<PolicySet PolicySetId="SIS-University-Portal" PolicyCombiningAlgId="permit-overrides">
+    <!-- Policy 1: Faculty (5 Rules) -->
+    <Policy PolicyId="Faculty-Management" RuleCombiningAlgId="permit-overrides">
+        <Target><Match AttributeId="role" Value="professor"/></Target>
+        <Rule RuleId="R1" Effect="Permit"/>
+        <Rule RuleId="R2" Effect="Permit"/>
+        <Rule RuleId="R3" Effect="Permit"/>
+        <Rule RuleId="R4" Effect="Permit"/>
+        <Rule RuleId="R5" Effect="Deny"><Target><Match AttributeId="action" Value="delete-user"/></Target></Rule>
+    </Policy>
+
+    <!-- Policy 2: Student Services (5 Rules) -->
+    <Policy PolicyId="Student-Self-Service" RuleCombiningAlgId="permit-overrides">
+        <Target><Match AttributeId="role" Value="student"/></Target>
+        <Rule RuleId="R6" Effect="Permit"><Condition><AttributeValue>self-record</AttributeValue></Condition></Rule>
+        <Rule RuleId="R7" Effect="Permit"/>
+        <Rule RuleId="R8" Effect="Permit"/>
+        <Rule RuleId="R9" Effect="Deny"><Target><Match AttributeId="action" Value="edit-grade"/></Target></Rule>
+        <Rule RuleId="R10" Effect="Deny"><Target><Match AttributeId="resource" Value="finance"/></Target></Rule>
+    </Policy>
+
+    <!-- Policy 3: Library (5 Rules) -->
+    <Policy PolicyId="Library-Policy" RuleCombiningAlgId="deny-overrides">
+        <Target><Match AttributeId="dept" Value="library"/></Target>
+        <Rule RuleId="R11" Effect="Permit"><Target><Match AttributeId="role" Value="librarian"/></Target></Rule>
+        <Rule RuleId="R12" Effect="Permit"/>
+        <Rule RuleId="R13" Effect="Deny"><Condition><AttributeValue>overdue</AttributeValue></Condition></Rule>
+        <Rule RuleId="R14" Effect="Permit"/>
+        <Rule RuleId="R15" Effect="Permit"/>
+    </Policy>
+
+    <!-- Policy 4: Admissions (5 Rules) -->
+    <Policy PolicyId="Admissions-Policy" RuleCombiningAlgId="permit-overrides">
+        <Target><Match AttributeId="role" Value="registrar"/></Target>
+        <Rule RuleId="R16" Effect="Permit"/>
+        <Rule RuleId="R17" Effect="Permit"/>
+        <Rule RuleId="R18" Effect="Permit"/>
+        <Rule RuleId="R19" Effect="Deny"/>
+        <Rule RuleId="R20" Effect="Permit"><Target><Match AttributeId="role" Value="alumni"/></Target></Rule>
+    </Policy>
+</PolicySet>

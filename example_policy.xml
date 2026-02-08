@@ -1,0 +1,20 @@
+<Policy PolicyId="example-policy" RuleCombiningAlgId="deny-overrides">
+
+    <!-- Rule 1: Cho phép Admin -->
+    <Rule RuleId="PermitAdmin" Effect="Permit">
+        <Target>
+            <Match AttributeId="role" Value="admin"/>
+        </Target>
+    </Rule>
+
+    <!-- Rule 2: Từ chối tài liệu bảo mật -->
+    <Rule RuleId="DenyConfidential" Effect="Deny">
+        <Condition>
+            <Apply FunctionId="string-equal">
+                <AttributeValue>confidential</AttributeValue>
+                <AttributeDesignator AttributeId="resource"/>
+            </Apply>
+        </Condition>
+    </Rule>
+
+</Policy>

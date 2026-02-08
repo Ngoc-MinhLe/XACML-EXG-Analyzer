@@ -1,0 +1,45 @@
+<PolicySet PolicySetId="FMS-Global-Corporate-Security" PolicyCombiningAlgId="deny-overrides">
+    <!-- Policy 1: Finance (10 Rules) -->
+    <Policy PolicyId="Finance-Management-Policy" RuleCombiningAlgId="permit-overrides">
+        <Target><Match AttributeId="zone" Value="finance"/></Target>
+        <Rule RuleId="R1" Effect="Permit"><Target><Match AttributeId="role" Value="cfo"/></Target></Rule>
+        <Rule RuleId="R2" Effect="Permit"><Target><Match AttributeId="role" Value="accountant"/><Match AttributeId="action" Value="read"/></Target></Rule>
+        <Rule RuleId="R3" Effect="Permit"><Target><Match AttributeId="role" Value="accountant"/><Match AttributeId="action" Value="write"/></Target></Rule>
+        <Rule RuleId="R4" Effect="Permit"><Target><Match AttributeId="role" Value="auditor"/></Target></Rule>
+        <Rule RuleId="R5" Effect="Deny"><Target><Match AttributeId="origin" Value="external"/></Target></Rule>
+        <Rule RuleId="R6" Effect="Permit"><Target><Match AttributeId="role" Value="hr-manager"/></Target></Rule>
+        <Rule RuleId="R7" Effect="Permit"><Condition><AttributeValue>own-payroll</AttributeValue></Condition></Rule>
+        <Rule RuleId="R8" Effect="Permit"><Target><Match AttributeId="role" Value="bank-api"/></Target></Rule>
+        <Rule RuleId="R9" Effect="Deny"><Target><Match AttributeId="action" Value="edit-salary"/></Target></Rule>
+        <Rule RuleId="R10" Effect="Deny"><Condition><AttributeValue>locked-period</AttributeValue></Condition></Rule>
+    </Policy>
+
+    <!-- Policy 2: Engineering (10 Rules) -->
+    <Policy PolicyId="Engineering-Repo-Policy" RuleCombiningAlgId="permit-overrides">
+        <Target><Match AttributeId="zone" Value="engineering"/></Target>
+        <Rule RuleId="R11" Effect="Permit"><Target><Match AttributeId="role" Value="developer"/><Match AttributeId="action" Value="push"/></Target></Rule>
+        <Rule RuleId="R12" Effect="Permit"><Target><Match AttributeId="role" Value="developer"/><Match AttributeId="action" Value="pull"/></Target></Rule>
+        <Rule RuleId="R13" Effect="Permit"><Target><Match AttributeId="role" Value="tech-lead"/></Target></Rule>
+        <Rule RuleId="R14" Effect="Permit"><Target><Match AttributeId="role" Value="guest"/><Match AttributeId="action" Value="read"/></Target></Rule>
+        <Rule RuleId="R15" Effect="Deny"><Condition><AttributeValue>master-branch</AttributeValue></Condition></Rule>
+        <Rule RuleId="R16" Effect="Permit"><Target><Match AttributeId="role" Value="admin"/></Target></Rule>
+        <Rule RuleId="R17" Effect="Permit"><Target><Match AttributeId="role" Value="operator"/></Target></Rule>
+        <Rule RuleId="R18" Effect="Permit"><Target><Match AttributeId="role" Value="logging-bot"/></Target></Rule>
+        <Rule RuleId="R19" Effect="Deny"><Condition><AttributeValue>peak-hours</AttributeValue></Condition></Rule>
+        <Rule RuleId="R20" Effect="Permit"><Target><Match AttributeId="mode" Value="emergency"/></Target></Rule>
+    </Policy>
+
+    <!-- Policy 3: Public (10 Rules) -->
+    <Policy PolicyId="Public-Shared-Policy" RuleCombiningAlgId="permit-overrides">
+        <Rule RuleId="R21" Effect="Permit"><Target><Match AttributeId="role" Value="marketer"/></Target></Rule>
+        <Rule RuleId="R22" Effect="Permit"><Target><Match AttributeId="role" Value="agency"/></Target></Rule>
+        <Rule RuleId="R23" Effect="Permit"><Target><Match AttributeId="action" Value="view"/></Target></Rule>
+        <Rule RuleId="R24" Effect="Deny"><Condition><AttributeValue>copyrighted</AttributeValue></Condition></Rule>
+        <Rule RuleId="R25" Effect="Permit"><Target><Match AttributeId="action" Value="archive"/></Target></Rule>
+        <Rule RuleId="R26" Effect="Permit"><Target><Match AttributeId="zone" Value="shared"/></Target></Rule>
+        <Rule RuleId="R27" Effect="Deny"><Condition><AttributeValue>unscanned</AttributeValue></Condition></Rule>
+        <Rule RuleId="R28" Effect="Deny"><Condition><AttributeValue>over-quota</AttributeValue></Condition></Rule>
+        <Rule RuleId="R29" Effect="Deny"><Condition><AttributeValue>maintenance</AttributeValue></Condition></Rule>
+        <Rule RuleId="R30" Effect="Permit"><Description>Fallback</Description></Rule>
+    </Policy>
+</PolicySet>

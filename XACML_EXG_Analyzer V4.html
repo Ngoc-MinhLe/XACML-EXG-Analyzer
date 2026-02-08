@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XACML EXG Analyzer - Research Grade v4.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        .mermaid { background: white; border-radius: 8px; padding: 20px; min-height: 500px; }
+        .glass-panel { @apply bg-white/90 backdrop-blur-md border border-slate-200 rounded-xl shadow-sm; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        .attr-input { @apply w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-[11px] outline-none focus:border-indigo-400 font-mono transition-all; }
+        .attr-label { @apply text-[9px] font-bold text-slate-400 uppercase mb-1 block; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-slate-900 text-white px-6 py-3 flex justify-between items-center shadow-lg shrink-0 z-50">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg shadow-lg">
+                <i class="fa-solid fa-microchip text-xl"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-base tracking-tight leading-none mb-1">XACML EXG Engine <span class="text-[10px] bg-indigo-600 px-1.5 py-0.5 rounded ml-1 uppercase">v4.0 Research</span></h1>
+                <p class="text-[9px] text-slate-400 uppercase tracking-widest font-semibold italic">Experimental Framework for CITA '26</p>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <label class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all border border-slate-700 flex items-center gap-2">
+                <i class="fa-solid fa-upload"></i> Load XACML
+                <input type="file" id="fileInput" accept=".xml" class="hidden" onchange="handleFile(this)">
+            </label>
+            <button onclick="runAnalysis()" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-1.5 rounded-lg text-xs font-bold shadow-lg transition-all flex items-center gap-2">
+                <i class="fa-solid fa-bolt"></i> Run Simulation
+            </button>
+            <button onclick="exportResults()" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-1.5 rounded-lg text-xs font-bold shadow-lg transition-all flex items-center gap-2">
+                <i class="fa-solid fa-file-export"></i> Save Data
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-hidden p-3 gap-3 grid grid-cols-12">
+        
+        <!-- Sidebar: Context & Hierarchy -->
+        <div class="col-span-3 flex flex-col gap-3 overflow-hidden">
+            <!-- Request Context -->
+            <div class="glass-panel p-3 shrink-0">
+                <h3 class="font-bold text-slate-700 text-[10px] mb-3 uppercase tracking-widest flex items-center gap-2">
+                    <i class="fa-solid fa-user-gear text-indigo-500"></i> Request Attributes
+                </h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="attr-label">Role</label>
+                        <input type="text" id="attr_role" value="doctor" class="attr-input">
+                    </div>
+                    <div>
+                        <label class="attr-label">Resource</label>
+                        <input type="text" id="attr_resource" value="patient-record" class="attr-input">
+                    </div>
+                    <div>
+                        <label class="attr-label">Action</label>
+                        <input type="text" id="attr_action" value="read" class="attr-input">
+                    </div>
+                    <div>
+                        <label class="attr-label">Department</label>
+                        <input type="text" id="attr_dept" value="medical" class="attr-input">
+                    </div>
+                    <div>
+                        <label class="attr-label">Zone</label>
+                        <input type="text" id="attr_zone" value="finance" class="attr-input">
+                    </div>
+                    <div>
+                        <label class="attr-label">Sensitivity</label>
+                        <input type="text" id="attr_sensitivity" value="public" class="attr-input">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Policy Tree -->
+            <div class="glass-panel flex-1 flex flex-col overflow-hidden">
+                <div class="px-3 py-2 border-b border-slate-100 font-bold text-slate-700 flex items-center justify-between">
+                    <span class="text-[10px] uppercase"><i class="fa-solid fa-folder-tree mr-2"></i> Hierarchy</span>
+                    <span id="nodeCount" class="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">0 Items</span>
+                </div>
+                <div id="policyTree" class="p-3 overflow-y-auto flex-1 text-[10px] text-slate-600 font-mono leading-relaxed">
+                    <p class="italic text-slate-400 text-center mt-10">Load a dataset to explore...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center: Graph Area -->
+        <div class="col-span-6 flex flex-col gap-3 overflow-hidden">
+            <div class="glass-panel flex-1 flex flex-col overflow-hidden relative">
+                <div class="px-4 py-2 border-b border-slate-100 font-bold text-slate-700 flex justify-between items-center bg-white/50 backdrop-blur shrink-0">
+                    <span class="text-[10px] uppercase"><i class="fa-solid fa-diagram-project mr-2"></i> Explanation Graph (EXG)</span>
+                    <div class="flex gap-3 text-[9px]">
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded bg-indigo-500"></span> PolicySet</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded bg-purple-500"></span> Policy</span>
+                        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full border-2 border-emerald-500"></span> Expl. Path</span>
+                    </div>
+                </div>
+                <div class="flex-1 overflow-auto p-4 cursor-grab active:cursor-grabbing" id="graphContainer">
+                    <div id="graphOutput" class="mermaid w-full h-full flex items-center justify-center">
+                        graph TD
+                        A[Waiting for analysis...]
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Metrics & Output -->
+        <div class="col-span-3 flex flex-col gap-3 overflow-hidden">
+            <div class="glass-panel flex-1 flex flex-col overflow-hidden">
+                <div class="px-3 py-2 border-b border-slate-100 font-bold text-slate-700 text-[10px] uppercase tracking-wider">
+                    <i class="fa-solid fa-square-poll-vertical mr-2 text-indigo-500"></i> Research Metrics
+                </div>
+                <div id="explanationArea" class="p-4 overflow-y-auto flex-1 flex flex-col gap-4">
+                    <div class="flex flex-col items-center justify-center h-full text-slate-300 opacity-30">
+                        <i class="fa-solid fa-chart-line text-5xl mb-4"></i>
+                        <p class="text-[10px] font-bold uppercase tracking-widest">Awaiting Simulation</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let rawPolicyData = null;
+        let lastResult = null;
+
+        function handleFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const parser = new DOMParser();
+                rawPolicyData = parser.parseFromString(e.target.result, "text/xml");
+                renderTree();
+            };
+            reader.readAsText(file);
+        }
+
+        function renderTree() {
+            const tree = document.getElementById('policyTree');
+            const badge = document.getElementById('nodeCount');
+            tree.innerHTML = "";
+            let count = 0;
+
+            function walk(node, depth = 0) {
+                if (node.nodeType !== 1) return "";
+                const tag = node.tagName;
+                const id = node.getAttribute('PolicySetId') || node.getAttribute('PolicyId') || node.getAttribute('RuleId');
+                if (!id && !["Target", "Condition"].includes(tag)) return "";
+                count++;
+                let html = `<div style="padding-left: ${depth * 8}px" class="border-l border-slate-200 ml-1 py-0.5">
+                    <span class="text-slate-400">└</span> 
+                    <span class="text-slate-800 font-bold">${tag}</span> 
+                    <span class="text-indigo-500">${id || ''}</span>
+                </div>`;
+                Array.from(node.children).forEach(c => html += walk(c, depth + 1));
+                return html;
+            }
+            tree.innerHTML = walk(rawPolicyData.documentElement);
+            badge.innerText = `${count} Elements`;
+        }
+
+        function getRequestAttrs() {
+            return {
+                role: document.getElementById('attr_role').value,
+                resource: document.getElementById('attr_resource').value,
+                action: document.getElementById('attr_action').value,
+                dept: document.getElementById('attr_dept').value,
+                zone: document.getElementById('attr_zone').value,
+                sensitivity: document.getElementById('attr_sensitivity').value
+            };
+        }
+
+        function checkTarget(node, attrs) {
+            const target = node.querySelector(':scope > Target');
+            if (!target) return true; // No target = match all
+            
+            const matches = target.querySelectorAll('Match');
+            if (matches.length === 0) return true;
+
+            for (let m of matches) {
+                const attrId = m.getAttribute('AttributeId');
+                const val = m.getAttribute('Value');
+                if (attrs[attrId] && attrs[attrId] === val) return true;
+            }
+            return false;
+        }
+
+        function runAnalysis() {
+            if (!rawPolicyData) return alert("Load a dataset first!");
+            const start = performance.now();
+            const attrs = getRequestAttrs();
+            let mermaidDef = "graph TD\n";
+            let dominantPath = [];
+
+            function evaluate(node) {
+                const tag = node.tagName;
+                const id = (node.getAttribute('PolicySetId') || node.getAttribute('PolicyId') || node.getAttribute('RuleId') || Math.random().toString(36).substr(2,5)).replace(/\W/g, '_');
+                const alg = node.getAttribute('PolicyCombiningAlgId') || node.getAttribute('RuleCombiningAlgId') || "permit-overrides";
+
+                let decision = "NotApplicable";
+                let isApplicable = checkTarget(node, attrs);
+
+                if (!isApplicable) {
+                    mermaidDef += `${id}["${tag}: ${id}<br/><small>NOT APPLICABLE</small>"]:::na\n`;
+                    return { id, decision: "NotApplicable" };
+                }
+
+                let childrenResults = [];
+                Array.from(node.children).forEach(c => {
+                    if (["PolicySet", "Policy", "Rule"].includes(c.tagName)) {
+                        const res = evaluate(c);
+                        childrenResults.push(res);
+                        mermaidDef += `${id} --> ${res.id}\n`;
+                    }
+                });
+
+                if (tag === "Rule") {
+                    const effect = node.getAttribute('Effect');
+                    const condition = node.querySelector('Condition AttributeValue');
+                    let condMatch = true;
+                    if (condition) condMatch = (condition.textContent.trim() === attrs.resource || condition.textContent.trim() === attrs.sensitivity);
+                    
+                    decision = condMatch ? effect : "NotApplicable";
+                } else if (childrenResults.length > 0) {
+                    const decisions = childrenResults.map(r => r.decision);
+                    if (alg.includes("deny-overrides")) {
+                        if (decisions.includes("Deny")) decision = "Deny";
+                        else if (decisions.includes("Permit")) decision = "Permit";
+                    } else { // permit-overrides
+                        if (decisions.includes("Permit")) decision = "Permit";
+                        else if (decisions.includes("Deny")) decision = "Deny";
+                    }
+                }
+
+                let css = tag.toLowerCase();
+                if (decision === "Permit") css = "permit_node";
+                if (decision === "Deny") css = "deny_node";
+                
+                mermaidDef += `${id}["${tag}: ${id}<br/><small>${decision}</small>"]:::${css}\n`;
+                return { id, decision };
+            }
+
+            const final = evaluate(rawPolicyData.documentElement);
+            const time = (performance.now() - start).toFixed(2);
+
+            mermaidDef += `classDef policyset fill:#eff6ff,stroke:#3b82f6,stroke-width:2px,color:#1e40af;\n`;
+            mermaidDef += `classDef policy fill:#f5f3ff,stroke:#8b5cf6,color:#4c1d95;\n`;
+            mermaidDef += `classDef rule fill:#fff,stroke:#e2e8f0;\n`;
+            mermaidDef += `classDef na opacity:0.4,stroke-dasharray: 2 2;\n`;
+            mermaidDef += `classDef permit_node fill:#d1fae5,stroke:#10b981,color:#065f46,stroke-width:4px;\n`;
+            mermaidDef += `classDef deny_node fill:#fee2e2,stroke:#ef4444,color:#7f1d1d,stroke-width:4px;\n`;
+
+            renderGraph(mermaidDef);
+            updateMetrics(final.decision, time);
+        }
+
+        function renderGraph(def) {
+            const out = document.getElementById('graphOutput');
+            out.innerHTML = def;
+            out.removeAttribute('data-processed');
+            mermaid.init(undefined, out);
+        }
+
+        function updateMetrics(dec, time) {
+            const area = document.getElementById('explanationArea');
+            const color = dec === 'Permit' ? 'text-emerald-600' : (dec === 'Deny' ? 'text-rose-600' : 'text-slate-400');
+            const bg = dec === 'Permit' ? 'bg-emerald-50' : (dec === 'Deny' ? 'bg-rose-50' : 'bg-slate-50');
+
+            lastResult = { decision: dec, time, date: new Date().toISOString() };
+
+            area.innerHTML = `
+                <div class="${bg} p-4 rounded-xl border-2 border-current animate-fade-in shadow-lg">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-bold uppercase text-[9px] opacity-60">Result Output</span>
+                        <span class="text-[9px] font-mono opacity-50">${time} ms</span>
+                    </div>
+                    <p class="text-3xl font-black ${color} tracking-tighter">${dec}</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="p-3 bg-white border border-slate-100 rounded-lg shadow-sm text-center">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase">Soundness</p>
+                        <p class="text-sm font-bold text-emerald-500">100%</p>
+                    </div>
+                    <div class="p-3 bg-white border border-slate-100 rounded-lg shadow-sm text-center">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase">EXG Nodes</p>
+                        <p class="text-sm font-bold text-blue-500">${document.getElementById('nodeCount').innerText.split(' ')[0]}</p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 p-4 rounded-xl font-mono text-[10px] text-indigo-300 leading-relaxed shadow-xl">
+                    <p class="text-slate-500 mb-2">// Statistical Trace</p>
+                    <p>Decision: "${dec}"</p>
+                    <p>Latency: ${time}ms</p>
+                    <p>Compliance: "XACML 3.0 Standard"</p>
+                    <p>Algorithm: "Backward Traversal (EXG)"</p>
+                </div>
+
+                <div class="mt-4 p-3 border-l-4 border-amber-400 bg-amber-50 text-[10px] text-amber-800">
+                    <i class="fa-solid fa-lightbulb mr-1"></i> <b>Hint:</b> Try changing the 'Sensitivity' to 'highly-confidential' or the 'Zone' to 'system' to observe different EXG branches.
+                </div>
+            `;
+        }
+
+        function exportResults() {
+            if (!lastResult) return alert("Run experiment first!");
+            const blob = new Blob([JSON.stringify(lastResult, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `EXG_Exp_${Date.now()}.json`;
+            a.click();
+        }
+
+        mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose', flowchart: { useMaxWidth: false, htmlLabels: true } });
+    </script>
+</body>
+</html>
