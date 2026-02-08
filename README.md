@@ -1,4 +1,4 @@
-XACML EXG Analyzer - v5.9 Final Stability
+XACML EXG Analyzer - v6.5 Final Stability
 
 A Graph-Based Framework for Explainable Decision Analysis in XACML Access Control Policies
 
