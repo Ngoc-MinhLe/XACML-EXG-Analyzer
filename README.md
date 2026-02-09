@@ -1,4 +1,4 @@
-XACML EXG Analyzer - v6.5 Final Stability
+XACML-EXG Reasoner - v6.5 Final Stability
 
 A Graph-Based Framework for Explainable Decision Analysis in XACML Access Control Policies
 
